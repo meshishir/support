@@ -1,55 +1,78 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Complaint } from './schema/complaints.schema';
 import { Model } from 'mongoose';
 import { v4 as uuid4 } from 'uuid';
-import { CreateComplaintDto } from './dto/create-complaint.dto';
+import { AddComplaintDto } from './dto/add-complaint.dto';
+import { UserSchema } from '../users/schema/createUser.schema';
+import { MessageStatus } from './enum/status.enum';
 
 @Injectable()
 export class ComplaintsService {
-  constructor(@InjectModel(Complaint.name) private complaintModel: Model<Complaint>) { }
+  constructor(@InjectModel(Complaint.name) private complaintModel: Model<Complaint>,
+    @InjectModel(UserSchema.name) private userModel: Model<UserSchema>) { }
 
-  async create(createComplaintDto: CreateComplaintDto) {
-    const token = 'CMP-' + uuid4().slice(0, 8).toUpperCase();
-    const newComplaint = new this.complaintModel({
-      ...createComplaintDto,
-      token,
-      messages: []
-    });
-    const existingEmail = await this.complaintModel.findOne({ email: createComplaintDto.email }).lean();
-    const existingPhone = await this.complaintModel.findOne({ phone: createComplaintDto.phone }).lean();
-    if (existingEmail || existingPhone) {
-      throw new ConflictException('User already exists with the provided email or phone number');
+  async addComplaint(userId: string, addComplaintDto: AddComplaintDto) {
+    const user = await this.userModel.findOne({ userId }).lean();
+    if (!userId.startsWith('U-')) throw new ForbiddenException('Invalid userId');
+
+
+    let complaint = await this.complaintModel.findOne({ userId });
+    if (!user) throw new NotFoundException('User not found');
+
+    if (!complaint) {
+      complaint = new this.complaintModel({
+        userId,
+        description: addComplaintDto.description || '',
+        messages: [],
+      });
+    }
+    if (addComplaintDto.description) {
+      complaint.description = addComplaintDto.description;
     }
 
-    return newComplaint.save();
+    const newMessage = {
+      from: user.userId,
+      text: addComplaintDto.message,
+      token: 'CMP-' + uuid4().slice(0, 8).toUpperCase(),
+      status: MessageStatus.OPEN,
+      ts: new Date(),
+    };
+    complaint.messages.push(newMessage);
+
+    return complaint.save();
   }
 
   async findAll() {
-    return this.complaintModel.find().exec();
+    return this.complaintModel.find().lean();
   }
 
 
   async findByToken(token: string) {
-    const c = await this.complaintModel.findOne({ token }).lean();
-    if (!c) throw new ConflictException('Complaint not found');
-    return c;
+    const complaint = await this.complaintModel.findOne({ 'messages.token': token }).lean();
+    if (!complaint) throw new NotFoundException('Complaint not found');
+    return complaint.messages.find(msg => msg.token === token);
   }
 
-  async addMessage(token: string, message: { from: string; text: string }) {
-    const c = await this.complaintModel.findOne({ token });
-    if (!c) throw new NotFoundException('Complaint not found');
-    c.messages.push({ ...message, ts: new Date() });
-    await c.save();
-    return c;
+  async updateMessageStatus(token: string, status: string) {
+    const complaint = await this.complaintModel.findOne({ 'messages.token': token });
+    if (!complaint) throw new NotFoundException('Message not found');
+    const message = complaint.messages.find(msg => msg.token === token);
+    if (!message) throw new NotFoundException('Message not found');
+    const statusValues = Object.values(MessageStatus);
+    if (!statusValues.includes(status as MessageStatus)) throw new ConflictException('Invalid status value');
+    message.status = statusValues.includes(status as MessageStatus) ? status : message.status;
+    await complaint.updateOne({ messages: complaint.messages });
+    return message;
   }
 
 
-  async updateStatus(token: string, status: string) {
-    const c = await this.complaintModel.findOne({ token });
-    if (!c) throw new NotFoundException('Complaint not found');
-    c.status = status;
-    await c.save();
-    return c;
+  async removeMessage(token: string) {
+    const complaint = await this.complaintModel.findOne({ 'messages.token': token });
+    if (!complaint) throw new NotFoundException('Complaint not found');
+    complaint.messages = complaint.messages.filter(msg => msg.token !== token);
+    await complaint.save();
+    return complaint;
   }
+
 }
