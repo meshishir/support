@@ -5,6 +5,16 @@ import { MessageStatus } from '../enum/status.enum';
 
 export type ComplaintDocument = Complaint & Document;
 
+@Schema()
+class Message {
+    @Prop({ type: String, required: true })
+    text: string;
+
+    @Prop({ enum: Object.values(MessageStatus), default: MessageStatus.OPEN })
+    status: string;
+}
+
+const MessageSchema = SchemaFactory.createForClass(Message);
 @Schema({ timestamps: true })
 export class Complaint {
     @Prop({ unique: true })
@@ -13,13 +23,10 @@ export class Complaint {
     @Prop({ type: String, ref: 'User', required: true })
     userId: string;
 
-    @Prop()
-    description: string;
-
     @Prop({ enum: Object.values(MessageStatus), default: MessageStatus.OPEN })
     status: string;
 
-    @Prop({ type: [{ type: Object }], default: [] })
+    @Prop({ type: [MessageSchema], default: [] })
     messages: any[];
 }
 

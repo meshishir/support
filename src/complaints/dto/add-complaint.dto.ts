@@ -4,10 +4,6 @@ import { AddMessageDto } from './addMessage.dto';
 
 export class AddComplaintDto {
     @IsOptional()
-    @IsString()
-    description?: string;
-
-    @IsOptional()
     @ValidateNested()
     @Type(() => AddMessageDto)
     message?: AddMessageDto;

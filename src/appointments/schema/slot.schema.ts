@@ -14,9 +14,9 @@ export class Slot extends Document {
     @Prop({ required: true })
     end: Date;
 
-    @Prop({ required: true })
-    expiresAt: Date;
+    @Prop({ default: false })
+    locked: boolean;
 }
 
 export const SlotSchema = SchemaFactory.createForClass(Slot);
-SlotSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+

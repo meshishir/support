@@ -6,6 +6,7 @@ import { v4 as uuid4 } from 'uuid';
 import { AddComplaintDto } from './dto/add-complaint.dto';
 import { UserSchema } from '../users/schema/createUser.schema';
 import { MessageStatus } from './enum/status.enum';
+import { AddMessageDto } from './dto/addMessage.dto';
 
 @Injectable()
 export class ComplaintsService {
@@ -23,12 +24,8 @@ export class ComplaintsService {
     if (!complaint) {
       complaint = new this.complaintModel({
         userId,
-        description: addComplaintDto.description || '',
         messages: [],
       });
-    }
-    if (addComplaintDto.description) {
-      complaint.description = addComplaintDto.description;
     }
 
     const newMessage = {
