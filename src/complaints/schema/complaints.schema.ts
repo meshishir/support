@@ -1,30 +1,33 @@
-import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { ComplaintStatus } from "../enum/status.enum";
+// src/complaints/schema/complaints.schema.ts
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
+import { MessageStatus } from '../enum/status.enum';
 
 export type ComplaintDocument = Complaint & Document;
 
+@Schema()
+class Message {
+    @Prop({ type: String, required: true })
+    text: string;
+
+    @Prop({ enum: Object.values(MessageStatus), default: MessageStatus.OPEN })
+    status: string;
+}
+
+const MessageSchema = SchemaFactory.createForClass(Message);
 @Schema({ timestamps: true })
 export class Complaint {
-    @Prop({ required: true, unique: true })
+    @Prop({ unique: true })
     token: string;
 
-    @Prop({ required: true })
-    name: string;
+    @Prop({ type: String, ref: 'User', required: true })
+    userId: string;
 
-    @Prop({ required: true, unique: true, minlength: 10, })
-    phone: Number;
-
-    @Prop({ required: true, unique: true, match: /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/ })
-    email: string;
-
-    @Prop()
-    description: string;
-
-    @Prop({ enum: Object.values(ComplaintStatus), default: ComplaintStatus.OPEN })
+    @Prop({ enum: Object.values(MessageStatus), default: MessageStatus.OPEN })
     status: string;
 
-    @Prop({ type: [{ type: Object }], default: [] })
-    messages: any[]
-
+    @Prop({ type: [MessageSchema], default: [] })
+    messages: any[];
 }
-export const ComplaintSchema = SchemaFactory.createForClass(Complaint)
+
+export const ComplaintSchema = SchemaFactory.createForClass(Complaint);
